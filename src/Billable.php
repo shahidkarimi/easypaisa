@@ -57,20 +57,30 @@ trait Billable
 
         if ($response != null) {
             $tresponse = $response->getTransactionResponse();
+
             if (($tresponse != null) && ($tresponse->getResponseCode() == '1') ) {
+               // $errorMessages = $response->getMessages()->getMessage();
+               // $this->adnResponse = ['code' => $errorMessages[0]->getCode(), 'message' => $errorMessages[0]->getText()];
                 return [
                     'authCode' => $tresponse->getAuthCode(),
                     'transId' => $tresponse->getTransId(),
                 ];
+
             } else if (($tresponse != null) && ($tresponse->getResponseCode() == "2") ) {
+                $this->adnResponse = ['code' => '22', 'message' => 'Hell'];
                 return false;
             } else if (($tresponse != null) && ($tresponse->getResponseCode() == "4") ) {
-                throw new Exception("ERROR: HELD FOR REVIEW", 1);
+                $this->adnResponse = ['code' => 'Bahisht', 'message' => 'Error while processing your card'];
+                return false;
+                //throw new Exception("ERROR: HELD FOR REVIEW", 1);
+
             }
         } else {
-            throw new Exception("ERROR: NO RESPONSE", 1);
+            $this->adnResponse = ['code' => '421', 'message' => 'Amorg error'];
+            return false;
+            //throw new Exception("ERROR: NO RESPONSE", 1);
         }
-
+         $this->adnResponse = ['code' => '420', 'message' => 'Your credit card could not be charged, please verify your credit card information.'];
         return false;
     }
 
@@ -115,9 +125,21 @@ trait Billable
      * @param  string  $plan
      * @return \Laravel\CashierAuthorizeNet\SubscriptionBuilder
      */
-    public function newSubscription($subscription, $plan)
+    public function newSubscription($subscription, $plan,$type='')
     {
-        return new SubscriptionBuilder($this, $subscription, $plan);
+        return new SubscriptionBuilder($this, $subscription, $plan,$type);
+    }
+
+    public function cancelSubscription($id){
+
+            $requestor = new Requestor();
+            $request = $requestor->prepare((new AnetAPI\ARBCancelSubscriptionRequest($id)));
+
+            $controller = new AnetController\ARBCancelSubscriptionController($request);
+
+            $response = $controller->executeWithApiResponse($requestor->env);
+            return $response;
+
     }
 
     /**
@@ -213,7 +235,7 @@ trait Billable
         $startDate = $subscription->created_at;
         $now = Carbon::now();
         $authorizePlan = $subscription->authorize_plan;
-        $config = Config::get('cashier-authorize');
+        $config = Config::get($this->getMyRole().'-cashier-authorize');
 
         $thisMonthsBillingDate = Carbon::createFromDate($now->year, $now->month, $startDate->day);
 
@@ -418,6 +440,7 @@ trait Billable
             $this->card_brand = $this->cardBrandDetector($card['number']);
             $this->card_last_four = substr($card['number'], -4);
         } else {
+            $errorMessages = $response->getMessages()->getMessage();
             throw new Exception("Response : " . $errorMessages[0]->getCode() . "  " .$errorMessages[0]->getText(), 1);
         }
 
@@ -522,6 +545,7 @@ trait Billable
             $this->save();
         } else {
             $errorMessages = $response->getMessages()->getMessage();
+            $this->adnResponse = ['code'=> $errorMessages[0]->getCode(), 'message'=> $errorMessages[0]->getText()];
             Log::error("Authorize.net Response : " . $errorMessages[0]->getCode() . "  " .$errorMessages[0]->getText());
         }
 

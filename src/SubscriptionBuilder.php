@@ -75,13 +75,15 @@ class SubscriptionBuilder
      * @param  mixed  $user
      * @param  string  $name
      * @param  string  $plan
+     * @param string $type
      * @return void
      */
-    public function __construct($user, $name, $plan)
+    public function __construct($user='', $name='', $plan='',$type='')
     {
         $this->user = $user;
         $this->name = $name;
         $this->plan = $plan;
+        $this->type = $type; //ibo or member
         $this->requestor = new Requestor;
     }
 
@@ -160,6 +162,7 @@ class SubscriptionBuilder
         return $this->create(null, $options);
     }
 
+
     /**
      * Create a new Authorize subscription.
      *
@@ -169,7 +172,11 @@ class SubscriptionBuilder
      */
     public function create()
     {
-        $config = Config::get('cashier-authorize');
+        if($this->type != ''){
+            $config = Config::get('cashier-authorize-'.$this->type);
+        }else {
+            $config = Config::get('cashier-authorize');
+        }
 
         // Subscription Type Info
         $subscription = new AnetAPI\ARBSubscriptionType();
